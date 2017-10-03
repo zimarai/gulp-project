@@ -8,39 +8,55 @@ var gulp = require('gulp'),
 	sourcemaps = require('gulp-sourcemaps'),
 	rename = require("gulp-rename"),
 	cleanCSS = require('gulp-clean-css'), // Ex minify-css
+	rev = require('gulp-rev'),
+	del = require('del'),
 	browserSync = require('browser-sync').create(); 
 
 var paths = {
 	// Source
-	srcSass: 'sass/*.sass',
-	srcJs: 'js/*.js',
-	srcImg: 'img/*',
+	srcSass: 'resources/sass/*.sass',
+	srcJs: 'resources/js/*.js',
+	srcImg: 'resources/img/*',
+
 	// Destination
-	destSass: 'build/css',
-	destJs: 'build/js',
-	destImg: 'build/img',
+	destCss: 'static/css',
+	destJs: 'static/js',
+	destImg: 'static/img',
+}
+var expandedFiles = {
+	css : 'styles.css',
+	js : 'all.js',
+};
+var compressedFiles = {
+	css : 'styles.min.css',
+	js : 'all.min.js',
 };
 
 // Scripts task
 // Uglifies
 gulp.task('scripts', function () {
-
 	// Uncompressed all JS file
 	gulp.src(paths.srcJs)
 	.pipe(sourcemaps.init())
-	.pipe(concat('all.js'))
-	.on('error', console.error.bind(console))
+	.pipe(concat(expandedFiles.js))
 	.pipe(sourcemaps.write('maps'))		
-	.pipe(gulp.dest(paths.destJs));
-	
+	.pipe(gulp.dest(paths.destJs))
+	.on('error', console.error.bind(console));
+
+});
+
+gulp.task('scripts-compressed', ['scripts'], function () {	
 	// Compressed all JS file
-	gulp.src('build/js/all.js')	
+	gulp.src(paths.destJs + '/' + expandedFiles.js)	
 	.pipe(sourcemaps.init())
-	.pipe(rename("all.min.js"))		
-	.pipe(uglify())
-	.on('error', console.error.bind(console))
+	.pipe(rename(compressedFiles.js))		
+	.pipe(uglify())	
+	.pipe(rev())	
 	.pipe(sourcemaps.write('maps'))		
-	.pipe(gulp.dest(paths.destJs));
+	.pipe(gulp.dest(paths.destJs))
+	.pipe(rev.manifest())			
+	.pipe(gulp.dest(paths.destJs))
+	.on('error', console.error.bind(console));
 });
 
 // Styles Task
@@ -52,20 +68,23 @@ gulp.task('styles', function () {
 	.pipe(sourcemaps.init())
 	.pipe(sass({
 		outputStyle: 'expanded'
-	}))
-	.pipe(autoprefixer('last 2 versions','> 1%'))
-	.on('error', console.error.bind(console))
-	.pipe(sourcemaps.write('maps'))		
-	.pipe(gulp.dest(paths.destSass));
-	
-	// Compressed main CSS file
-	gulp.src('build/css/main.css')	
+	}).on('error', console.error.bind(console)))
+	.pipe(concat(expandedFiles.css))	
+	.pipe(autoprefixer('last 2 versions','> 1%'))	
+	.pipe(sourcemaps.write('./'))	
+	.pipe(gulp.dest(paths.destCss))
 	.pipe(sourcemaps.init())
 	.pipe(cleanCSS())
-	.pipe(rename("main.min.css"))		
-	.on('error', console.error.bind(console))		
-	.pipe(sourcemaps.write('maps'))		
-	.pipe(gulp.dest(paths.destSass));
+	.pipe(rename({
+		basename: "styles",
+		suffix: ".min",
+		extname: ".css"
+	}))		
+	.pipe(rev())		
+	.pipe(sourcemaps.write('./'))		
+	.pipe(gulp.dest(paths.destCss))
+	.pipe(rev.manifest())			
+	.pipe(gulp.dest(paths.destCss));
 });
 
 // Image Task
@@ -75,25 +94,25 @@ gulp.task('images', function () {
 	.pipe(imagemin())
 	.pipe(gulp.dest(paths.destImg));
 });
-
+gulp.task('clean', function () {
+	return  del([
+		'static/*'
+	]);
+});
 // Watch task
 // watches js and css and rebuild everytime files are saved
 gulp.task('watch', function () {
-	gulp.watch(['js/*.js'], ['scripts', browserSync.reload]);
-	gulp.watch(['sass/*.sass'], ['styles', browserSync.reload]);
-	gulp.watch(['img/*'], ['images', browserSync.reload]);
-	gulp.watch(['./*.html'], [browserSync.reload]);
+	gulp.watch([paths.srcJs], ['scripts', browserSync.reload]);
+	gulp.watch([paths.srcSass], ['styles', browserSync.reload]);
+	gulp.watch(['./*.html'], browserSync.reload);
 });
 
-gulp.task('default', [
-	'scripts',
-	'styles',
-	'watch',
-	'browser-sync'
-]);
+gulp.task('default', ['clean'], function(){
+	gulp.start(['scripts', 'styles', /*'images',*/ 'watch', 'browser-sync']);
+});
 
 gulp.task('browser-sync', function(){
 	browserSync.init({
-		proxy: "snippets.dev/gulp-project"
+		proxy: "snippets.dev/gulp-project",
 	});
 })

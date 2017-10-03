@@ -1,5 +1,5 @@
 # Node modules
 node_modules
 
-# build folder where processed styles an js files resides
-build
+# static folder where processed styles an js files resides
+static
